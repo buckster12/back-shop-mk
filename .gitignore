@@ -1,0 +1,4 @@
+.idea
+serverless
+product-service/yarn.lock
+product-service/.webpack
