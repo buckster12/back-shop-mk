@@ -1,38 +1,79 @@
 'use strict';
-import productList from './productList.json';
+
+const {Client} = require('pg');
+
+const {PG_HOST, PG_PORT, PG_DATABASE, PG_USERNAME, PG_PASSWORD} = process.env;
+
+const dbOptions = {
+    host: PG_HOST,
+    port: PG_PORT,
+    database: PG_DATABASE,
+    user: PG_USERNAME,
+    password: PG_PASSWORD,
+    ssl: {
+        rejectUnauthorized: false
+    },
+    _connectionTimeoutMillis: 5000
+}
+
+const validHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Credentials': true,
+}
 
 export const getProductById = async (event) => {
+    const client = new Client(dbOptions);
     const requestBody = event.pathParameters;
-    const productId = requestBody.productId || null;
-    // console.log("id=", productId);
-    // console.log("typeof id=", typeof productId);
 
-    if (typeof productId !== 'string') {
-        console.error('Validation Failed');
+    // Log incoming event
+    console.log('event: ', event);
+    
+    const productId = requestBody.productId || null;
+    console.log("productId=", productId);
+
+    // Connect to database
+    try {
+        await client.connect();
+    } catch (err) {
         return {
             statusCode: 500,
-            body: JSON.stringify(
-                {
-                    error: 'Couldn\'t get product with this ID'
-                }
-            )
+            headers: validHeaders,
+            body: JSON.stringify({
+                error: 'Cannot connect to database:' + err
+            }),
         };
     }
 
-    // Try to find in array by `id`
-    let foundProduct = null;
-    for (let index = 0; index < productList.length; ++index) {
-        let productItem = productList[index];
-        if (productItem.id === productId) {
-            foundProduct = productItem;
-            break;
-        }
+    // Query
+    try {
+        const {rows: product} = await client.query(
+            `select *
+             from products
+             where id = $1::uuid
+            `, [productId]);
+
+        console.log('product: ', product);
+
+        return {
+            statusCode: 200,
+            headers: validHeaders,
+            body: JSON.stringify(
+                product
+            ),
+        };
+    } catch (err) {
+        console.error('Error during database request: ', err);
+        return {
+            statusCode: 500,
+            headers: validHeaders,
+            body: JSON.stringify(
+                {
+                    error: 'Cannot find product with id=' + productId
+                }
+            ),
+        };
+    } finally {
+        client.end();
     }
 
-    return {
-        statusCode: 200,
-        body: JSON.stringify(
-            foundProduct
-        ),
-    };
 };
