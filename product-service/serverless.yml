@@ -36,6 +36,16 @@ custom:
   # collectCoverage: true
 
 functions:
+  createProduct:
+    handler: handler.createProduct
+    events:
+      - http:
+          path: products
+          method: post
+          cors: true
+  #          request:
+  #            schema:
+  #              application/json: ${file(src/schemas/createProductSchema.json)}
   getProductsList:
     handler: handler.getProductsList
     events:
