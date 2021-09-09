@@ -36,7 +36,16 @@ export const createProduct = async (event) => {
         count = 0
     } = body;
 
-    let message = 'ok';
+    // Check if product data is invalid
+    if (title === '' || description === '' || price === '' || count === '') {
+        return {
+            statusCode: 400,
+            headers: validHeaders,
+            body: JSON.stringify({
+                error: 'Wrong post data'
+            }),
+        };
+    }
 
     // Connect to database
     try {
