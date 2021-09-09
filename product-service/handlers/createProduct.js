@@ -50,6 +50,7 @@ export const createProduct = async (event) => {
     // Connect to database
     try {
         await client.connect();
+        await client.query("BEGIN"); // Start transaction
     } catch (err) {
         return {
             statusCode: 500,
@@ -71,17 +72,29 @@ export const createProduct = async (event) => {
                 description,
                 price
             ]);
-
         const newProductId = newProductResult.rows[0].id;
 
-        await client.query(`
+        // Try to add stock
+        const stockResult = await client.query(`
                     insert into stocks (product_id, count)
-                    values ($1::uuid, $2::int) `,
+                    values ($1::text, $2::int)
+                    RETURNING product_id, count `,
             [
                 newProductId,
                 count
             ]
         )
+
+        const stockCount = stockResult.rows[0].count;
+        const stockProductId = stockResult.rows[0].product_id;
+
+        if (stockCount === '' || stockProductId !== newProductId) {
+            console.log("Rolling back the transaction...");
+            client.query("ROLLBACK");
+        } else {
+            console.log("Committing the transaction");
+            client.query("COMMIT");
+        }
 
         return {
             statusCode: 200,
