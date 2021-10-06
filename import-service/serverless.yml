@@ -1,0 +1,56 @@
+service: import-service
+frameworkVersion: '2'
+useDotenv: true
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  stage: dev
+  region: eu-west-1
+  lambdaHashingVersion: 20201221
+
+  environment:
+    AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+    BUCKET: '${env:BUCKET}'
+    BUCKET_PREFIX: '${env:BUCKET_PREFIX}'
+    REGION: '${env:REGION}'
+
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action: [ "s3:ListBucket", "s3:PutObject", "s3:PutObjectAcl" ]
+      Resource:
+        - "arn:aws:s3:::${env:BUCKET}"
+    - Effect: "Allow"
+      Action:
+        - "s3:*"
+      Resource:
+        - "arn:aws:s3:::${env:BUCKET}/*"
+plugins:
+  - serverless-webpack
+custom:
+  webpack:
+    webpackConfig: 'webpack.config.js'
+    includeModules: true
+
+functions:
+  importProductsFile:
+    handler: handler.importProductsFile
+    events:
+      - http:
+          method: GET
+          path: import
+          cors: true
+          request:
+            parameters:
+              querystrings:
+                name:true
+
+  importFileParser:
+    handler: handler.importFileParser
+    events:
+      - s3:
+          bucket: '${env:BUCKET}'
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: '${env:BUCKET_PREFIX}'
+          existing: true
